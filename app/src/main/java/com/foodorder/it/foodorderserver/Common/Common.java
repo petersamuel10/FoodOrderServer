@@ -6,12 +6,12 @@ import android.graphics.Canvas;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.net.ConnectivityManager;
-import android.net.Network;
 import android.net.NetworkInfo;
-import android.widget.Toast;
 
 import com.foodorder.it.foodorderserver.Model.Request;
 import com.foodorder.it.foodorderserver.Model.User;
+import com.foodorder.it.foodorderserver.Remote.APIService;
+import com.foodorder.it.foodorderserver.Remote.FCMRetrofitClient;
 import com.foodorder.it.foodorderserver.Remote.IGeoCoordinates;
 import com.foodorder.it.foodorderserver.Remote.RetrofitClient;
 
@@ -25,6 +25,8 @@ public class Common {
 
     public static final String baseUrl = "https://maps.googleapis.com";
 
+    public static final String fcmURL  = "https://fcm.googleapis.com/";
+
     public static String convertCodeToStatus (String code)
     {
         if(code.equals("0"))
@@ -32,12 +34,17 @@ public class Common {
         else if (code.equals("1"))
             return "ON MY WAY";
         else
-            return "SHIPPED";
+        return "SHIPPED";
 
     }
 
     public static IGeoCoordinates getGeoCodeService (){
         return RetrofitClient.getClient(baseUrl).create(IGeoCoordinates.class);
+    }
+
+    public static APIService getFCMClient ()
+    {
+        return FCMRetrofitClient.getClient(fcmURL).create(APIService.class);
     }
 
     public static Bitmap scaleBitmap(Bitmap bitmap , int newWidth , int newHeight ) {

@@ -2,25 +2,31 @@ package com.foodorder.it.foodorderserver;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
-import android.view.MenuItem;
 import android.view.View;
-import android.widget.Toast;
 
 import com.firebase.ui.database.FirebaseRecyclerAdapter;
 import com.foodorder.it.foodorderserver.Common.Common;
-import com.foodorder.it.foodorderserver.Interface.ItemClickListener;
+import com.foodorder.it.foodorderserver.Model.Notification;
 import com.foodorder.it.foodorderserver.Model.Request;
+import com.foodorder.it.foodorderserver.Model.Send_TO;
+import com.foodorder.it.foodorderserver.Model.Token;
+import com.foodorder.it.foodorderserver.Remote.APIService;
 import com.foodorder.it.foodorderserver.ViewHolder.OrderViewHolder;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.database.ValueEventListener;
 import com.jaredrummler.materialspinner.MaterialSpinner;
+
+import java.util.List;
 
 public class OrderStatus extends AppCompatActivity {
 
@@ -33,6 +39,8 @@ public class OrderStatus extends AppCompatActivity {
     private FirebaseRecyclerAdapter<Request , OrderViewHolder> adapter;
 
     private MaterialSpinner status;
+
+    private APIService mService;
 
 
     @Override
@@ -57,37 +65,51 @@ public class OrderStatus extends AppCompatActivity {
 
         adapter = new FirebaseRecyclerAdapter<Request, OrderViewHolder>(Request.class,R.layout.order_layout,OrderViewHolder.class,request) {
             @Override
-            protected void populateViewHolder(OrderViewHolder viewHolder, final Request model, int position) {
+            protected void populateViewHolder(OrderViewHolder viewHolder, final Request model, final int position) {
 
                 viewHolder.txtOrderId.setText(adapter.getRef(position).getKey());
                 viewHolder.txtOrderStatus.setText(Common.convertCodeToStatus(model.getStatus()));
                 viewHolder.txtOrderPhone.setText(model.getPhone());
                 viewHolder.txtOrderAddress.setText(model.getAddress());
 
-                viewHolder.setItemClickListener(new ItemClickListener() {
+                viewHolder.btnEdit.setOnClickListener(new View.OnClickListener() {
                     @Override
-                    public void onClick(View view, int position, boolean isLongClick) {
-                        Intent tracking = new Intent(OrderStatus.this,TrackingOrder.class);
-                        Common.CurrentRequest = model;
-                        startActivity(tracking);
+                    public void onClick(View view) {
+                        updateStatus(adapter.getRef(position).getKey(), adapter.getItem(position));
                     }
                 });
 
+                viewHolder.btnRemove.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        request.child(adapter.getRef(position).getKey()).removeValue();
+                        adapter.notifyDataSetChanged();
+                    }
+                });
+
+                viewHolder.btnDetails.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+
+                        Intent showDetails = new Intent(getBaseContext(),OrderDetails.class);
+                        Common.CurrentRequest = model;
+                        showDetails.putExtra("orderId",adapter.getRef(position).getKey());
+                        startActivity(showDetails);
+                    }
+                });
+
+                viewHolder.btnDirection.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        Intent trackingIntent = new Intent(getBaseContext(),TrackingOrder.class);
+                        Common.CurrentRequest = model;
+                        startActivity(trackingIntent);
+                    }
+                });
             }
         };
         adapter.notifyDataSetChanged();
         recyclerView.setAdapter(adapter);
-    }
-
-    @Override
-    public boolean onContextItemSelected(MenuItem item) {
-
-        if(item.getTitle().equals(Common.UPDATE))
-            updateStatus(adapter.getRef(item.getOrder()).getKey(), adapter.getItem(item.getOrder()));
-
-            else if(item.getTitle().equals(Common.DELETE))
-               request.child(adapter.getRef(item.getOrder()).getKey()).removeValue();
-        return super.onContextItemSelected(item);
     }
 
     private void updateStatus(final String key, final Request item) {
@@ -112,6 +134,9 @@ public class OrderStatus extends AppCompatActivity {
                 dialogInterface.dismiss();
                 item.setStatus(String.valueOf(status.getSelectedIndex()));
                 request.child(key).setValue(item);
+
+                adapter.notifyDataSetChanged();
+                sendOrderStatusToUser(key,item); // notification
             }
         }).setNegativeButton("NO", new DialogInterface.OnClickListener() {
             @Override
@@ -122,5 +147,34 @@ public class OrderStatus extends AppCompatActivity {
         });
 
         alertDialog.show();
+    }
+
+    private void sendOrderStatusToUser(final String key, Request item) {
+
+        DatabaseReference tokens = database.getReference("Tokens");
+        tokens.orderByKey().equalTo(item.getPhone())
+                .addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+
+                        for(DataSnapshot dataSnapshot1:dataSnapshot.getChildren())
+                        {
+                            Token token = dataSnapshot1.getValue(Token.class);
+
+                            //Make row payload
+                            Notification notification = new Notification("peter samuel","Your order "+key+" was updated");
+                            Send_TO send = new Send_TO(token.getToken(), (List<Notification>) notification);
+
+                            mService.sendNotification(send);
+
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                    }
+                });
+
     }
 }

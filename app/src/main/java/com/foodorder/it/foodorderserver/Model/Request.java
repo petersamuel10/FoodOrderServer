@@ -9,18 +9,20 @@ public class Request {
     private String address;
     private String total;
     private String status;
+    private String comment;
 
     private List<Order> foods; //list of foods that ordered
 
     public Request() {
     }
 
-    public Request(String phone, String name, String address, String total, List<Order> foods) {
+    public Request(String phone, String name, String address, String total,String comment, List<Order> foods) {
         this.phone = phone;
         this.name = name;
         this.address = address;
         this.total = total;
         this.foods = foods;
+        this.comment = comment;
         this.status ="0"; // Default 0 ,0 placed , 1 shipping ,2 shipped
     }
 
@@ -70,5 +72,13 @@ public class Request {
 
     public void setFoods(List<Order> foods) {
         this.foods = foods;
+    }
+
+    public String getComment() {
+        return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
     }
 }
